@@ -1,65 +1,185 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState, useEffect } from "react";
+import Navbar from "../components/Navbar";
+import LinkCard from "../components/LinkCard";
+import AddEditModal from "../components/AddEditModal";
+import ConfirmationModal from "../components/ConfirmationModal";
+import { useLanguage } from "../context/LanguageContext";
+import { Plus, Search, Filter } from "lucide-react";
+
+export default function Dashboard() {
+  const { t, language } = useLanguage();
+  
+  // Dummy Data
+  const [links, setLinks] = useState([
+    {
+      id: 1,
+      name: "Facebook",
+      icon: "📘",
+      link: "https://facebook.com",
+      accounts: [
+        { title: "Personal", email: "mohammed@fb.com", password: "password123" },
+        { title: "Work", email: "dev@fb.com", password: "workpass!23" }
+      ]
+    },
+    {
+      id: 2,
+      name: "Google",
+      icon: "🔍",
+      link: "https://google.com",
+      accounts: [
+        { title: "Main", email: "admin@gmail.com", password: "securepassword" }
+      ]
+    },
+    {
+      id: 3,
+      name: "GitHub",
+      icon: "💻",
+      link: "https://github.com",
+      accounts: [
+        { title: "Dev Account", email: "coder@github.com", password: "gitpassword" }
+      ]
+    }
+  ]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAddEditOpen, setIsAddEditOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [currentItem, setCurrentItem] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
+
+  const filteredLinks = links.filter(link => 
+    link.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    link.accounts.some(acc => acc.email.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const handleSaveLink = (formData) => {
+    if (currentItem) {
+      // Edit
+      setLinks(links.map(link => link.id === currentItem.id ? { ...formData, id: link.id } : link));
+    } else {
+      // Add
+      const newLink = {
+        ...formData,
+        id: Date.now()
+      };
+      setLinks([...links, newLink]);
+    }
+  };
+
+  const handleEdit = (item) => {
+    setCurrentItem(item);
+    setIsAddEditOpen(true);
+  };
+
+  const handleDeleteClick = (id) => {
+    setDeleteId(id);
+    setIsConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
+    setLinks(links.filter(link => link.id !== deleteId));
+    setIsConfirmOpen(false);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <Navbar />
+
+      <main className="container" style={{ flex: 1, padding: '1.5rem', width: '100%' }}>
+        
+        {/* Header Actions */}
+        <div style={{ 
+          display: "flex", 
+          flexWrap: "wrap", 
+          gap: "1rem", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          marginBottom: "2rem" 
+        }}>
+          <div>
+            <h1 style={{ fontSize: "1.75rem", fontWeight: "800", letterSpacing: "-0.5px" }}>{t('dashboard')}</h1>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>{language === 'ar' ? 'قم بإدارة روابطك وحساباتك بأمان' : 'Safe & simple link management'}</p>
+          </div>
+          
+          <button 
+            onClick={() => { setCurrentItem(null); setIsAddEditOpen(true); }} 
+            className="btn btn-primary"
+            style={{ padding: "0.75rem 1.5rem", borderRadius: "10px", boxShadow: "0 4px 6px -1px rgba(59, 130, 246, 0.3)" }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            <Plus size={20} /> {t('add_new')}
+          </button>
+        </div>
+
+        {/* Search Bar */}
+        <div className="glass-panel" style={{ padding: "0.75rem", marginBottom: "2rem" }}>
+          <div style={{ position: "relative", width: "100%" }}>
+            <Search size={18} style={{ 
+              position: "absolute", 
+              [language === 'ar' ? 'right' : 'left']: "1.25rem", 
+              top: "50%", 
+              transform: "translateY(-50%)", 
+              color: "var(--text-secondary)" 
+            }} />
+            <input 
+              type="text" 
+              className="glass-input" 
+              placeholder={t('search')} 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ 
+                paddingLeft: language === 'ar' ? '1rem' : '3.25rem', 
+                paddingRight: language === 'ar' ? '3.25rem' : '1rem' 
+              }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
         </div>
+
+        {/* Links Grid */}
+        {filteredLinks.length > 0 ? (
+          <div className="grid grid-cols-1 grid-cols-sm-2 grid-cols-lg-3 grid-cols-xl-4" style={{ gap: "1.25rem" }}>
+            {filteredLinks.map(link => (
+              <LinkCard 
+                key={link.id} 
+                item={link} 
+                onEdit={handleEdit} 
+                onDelete={handleDeleteClick} 
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="glass-panel text-center" style={{ padding: "5rem 2rem" }}>
+             <p style={{ color: "var(--text-secondary)", fontSize: "1.1rem" }}>{t('no_accounts')}</p>
+             <button 
+                onClick={() => { setCurrentItem(null); setIsAddEditOpen(true); }}
+                className="btn btn-secondary mt-4"
+             >
+                {t('add_account')}
+             </button>
+          </div>
+        )}
       </main>
+
+      {/* Modals */}
+      <AddEditModal 
+        isOpen={isAddEditOpen} 
+        onClose={() => setIsAddEditOpen(false)} 
+        initialData={currentItem}
+        onSave={handleSaveLink}
+      />
+
+      <ConfirmationModal 
+        isOpen={isConfirmOpen} 
+        onClose={() => setIsConfirmOpen(false)} 
+        onConfirm={confirmDelete}
+        message={t('delete_confirm')}
+      />
+
+      {/* Footer Branding */}
+      <footer style={{ padding: "2rem", textAlign: "center", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+        LinkSaver - Build By Yasser WIth Love {new Date().getFullYear()} ©
+      </footer>
     </div>
   );
 }
