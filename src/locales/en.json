@@ -28,8 +28,14 @@
   "add_account": "Add Account",
   "reset_password": "Reset Password",
   "current_password": "Current Password",
+  "bottom_text": "Safe & simple link management",
   "new_password": "New Password",
   "update_profile": "Update Profile",
   "welcome": "Welcome back,",
-  "loading": "Loading..."
+  "loading": "Loading...",
+  "err_invalid_login": "Invalid email or password.",
+  "err_user_not_found": "Account not found.",
+  "err_email_exists": "Email already in use.",
+  "err_weak_pass": "Password is too weak.",
+  "err_generic": "Something went wrong. Please try again."
 }

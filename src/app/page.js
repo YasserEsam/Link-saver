@@ -6,65 +6,85 @@ import LinkCard from "../components/LinkCard";
 import AddEditModal from "../components/AddEditModal";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { useLanguage } from "../context/LanguageContext";
-import { Plus, Search, Filter } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { Plus, Search, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { db } from "../lib/firebase";
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc, 
+  doc, 
+  updateDoc,
+  query,
+  orderBy
+} from "firebase/firestore";
 
 export default function Dashboard() {
   const { t, language } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   
-  // Dummy Data
-  const [links, setLinks] = useState([
-    {
-      id: 1,
-      name: "Facebook",
-      icon: "📘",
-      link: "https://facebook.com",
-      accounts: [
-        { title: "Personal", email: "mohammed@fb.com", password: "password123" },
-        { title: "Work", email: "dev@fb.com", password: "workpass!23" }
-      ]
-    },
-    {
-      id: 2,
-      name: "Google",
-      icon: "🔍",
-      link: "https://google.com",
-      accounts: [
-        { title: "Main", email: "admin@gmail.com", password: "securepassword" }
-      ]
-    },
-    {
-      id: 3,
-      name: "GitHub",
-      icon: "💻",
-      link: "https://github.com",
-      accounts: [
-        { title: "Dev Account", email: "coder@github.com", password: "gitpassword" }
-      ]
-    }
-  ]);
-
+  const [links, setLinks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddEditOpen, setIsAddEditOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
+  // Protected Route & Data Fetching
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+
+    if (user) {
+      const q = query(
+        collection(db, `users/${user.uid}/links`),
+        orderBy("createdAt", "desc")
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const linksData = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id
+        }));
+        setLinks(linksData);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [user, authLoading, router]);
+
   const filteredLinks = links.filter(link => 
     link.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     link.accounts.some(acc => acc.email.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const handleSaveLink = (formData) => {
-    if (currentItem) {
-      // Edit
-      setLinks(links.map(link => link.id === currentItem.id ? { ...formData, id: link.id } : link));
-    } else {
-      // Add
-      const newLink = {
-        ...formData,
-        id: Date.now()
-      };
-      setLinks([...links, newLink]);
+  const handleSaveLink = async (formData) => {
+    if (!user) return;
+
+    try {
+      if (currentItem) {
+        // Edit
+        const docRef = doc(db, `users/${user.uid}/links`, currentItem.id);
+        await updateDoc(docRef, {
+          ...formData,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        // Add
+        await addDoc(collection(db, `users/${user.uid}/links`), {
+          ...formData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error("Error saving link:", error);
     }
   };
 
@@ -78,10 +98,25 @@ export default function Dashboard() {
     setIsConfirmOpen(true);
   };
 
-  const confirmDelete = () => {
-    setLinks(links.filter(link => link.id !== deleteId));
-    setIsConfirmOpen(false);
+  const confirmDelete = async () => {
+    if (!user || !deleteId) return;
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/links`, deleteId));
+      setIsConfirmOpen(false);
+    } catch (error) {
+      console.error("Error deleting link:", error);
+    }
   };
+
+  if (authLoading || (user && loading)) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
+        <Loader2 className="animate-spin" style={{ color: 'var(--accent-color)' }} size={40} />
+      </div>
+    );
+  }
+
+  if (!user) return null;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -149,11 +184,41 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <div className="glass-panel text-center" style={{ padding: "5rem 2rem" }}>
-             <p style={{ color: "var(--text-secondary)", fontSize: "1.1rem" }}>{t('no_accounts')}</p>
+          <div className="glass-panel text-center" style={{ 
+            padding: "6rem 2rem", 
+            display: "flex", 
+            flexDirection: "column", 
+            alignItems: "center", 
+            gap: "1.5rem",
+            background: "linear-gradient(135deg, var(--bg-secondary), var(--bg-primary))"
+          }}>
+             <div style={{ 
+                width: "80px", 
+                height: "80px", 
+                borderRadius: "24px", 
+                background: "rgba(59, 130, 246, 0.05)", 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center",
+                color: "var(--accent-color)",
+                marginBottom: "0.5rem"
+             }}>
+                <Plus size={40} strokeWidth={1.5} />
+             </div>
+             
+             <div>
+                <h2 style={{ fontSize: "1.5rem", fontWeight: "800", marginBottom: "0.5rem" }}>{t('no_accounts')}</h2>
+                <p style={{ color: "var(--text-secondary)", maxWidth: "300px", margin: "0 auto", fontSize: "0.95rem" }}>
+                  {language === 'ar' 
+                    ? 'ابدأ بإضافة أول رابط وحساباتك لتنظيمها بشكل آمن' 
+                    : 'Start by adding your first link and accounts to organize them securely'}
+                </p>
+             </div>
+
              <button 
                 onClick={() => { setCurrentItem(null); setIsAddEditOpen(true); }}
-                className="btn btn-secondary mt-4"
+                className="btn btn-primary"
+                style={{ padding: "0.8rem 2.5rem", borderRadius: "12px", fontSize: "1rem", fontWeight: "700" }}
              >
                 {t('add_account')}
              </button>

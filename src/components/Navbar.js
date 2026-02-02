@@ -3,12 +3,25 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { Sun, Moon, Globe, LogOut, User } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const { language, toggleLanguage, t } = useLanguage();
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/login');
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <nav style={{ 
@@ -43,12 +56,16 @@ export default function Navbar() {
 
         <div style={{ width: '1px', height: '20px', background: 'var(--glass-border)', margin: '0 0.5rem' }}></div>
 
-        <Link href="/profile" className="icon-btn" title={t('profile')}>
-          <User size={20} />
+        <Link href="/profile" className="icon-btn" title={t('profile')} style={{ overflow: 'hidden', padding: user?.photoURL ? '0' : '0.4rem' }}>
+          {user?.photoURL ? (
+            <img src={user.photoURL} alt="Profile" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+          ) : (
+            <User size={20} />
+          )}
         </Link>
-        <Link href="/login" className="icon-btn" style={{ color: 'var(--danger)' }} title={t('logout')}>
+        <button onClick={handleLogout} className="icon-btn" style={{ color: 'var(--danger)' }} title={t('logout')}>
           <LogOut size={20} />
-        </Link>
+        </button>
       </div>
 
       <style jsx>{`

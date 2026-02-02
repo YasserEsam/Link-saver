@@ -2,13 +2,16 @@
 
 import { LanguageProvider } from '../context/LanguageContext';
 import { ThemeProvider } from '../context/ThemeContext';
+import { AuthProvider } from '../context/AuthContext';
 
 export default function Providers({ children }) {
   return (
-    <LanguageProvider>
-      <ThemeProvider>
-        {children}
-      </ThemeProvider>
-    </LanguageProvider>
+    <AuthProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
+      </LanguageProvider>
+    </AuthProvider>
   );
 }

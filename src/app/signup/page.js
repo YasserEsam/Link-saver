@@ -4,22 +4,41 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { Mail, Lock, User, ArrowRight, Loader2, Globe, Moon, Sun } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { getFriendlyErrorMessage } from '../../utils/errorHelper';
 
 export default function SignupPage() {
   const { t, toggleLanguage, language } = useLanguage();
   const { toggleTheme, theme } = useTheme();
+  const { signup } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
   const router = useRouter();
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
+    setError('');
+    
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await signup(email, password, name);
       router.push('/');
-    }, 1500);
+    } catch (err) {
+      setError(getFriendlyErrorMessage(err.code, t));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -32,17 +51,7 @@ export default function SignupPage() {
       overflow: 'hidden'
     }}>
        {/* Background Decor */}
-      <div style={{
-        position: 'absolute',
-        top: '20%',
-        left: '20%',
-        width: '400px',
-        height: '400px',
-        background: 'radial-gradient(circle, var(--accent-color) 0%, transparent 70%)',
-        opacity: 0.15,
-        filter: 'blur(80px)',
-        zIndex: -1
-      }}></div>
+      <div style={{ position: 'absolute', top: '20%', left: '20%', width: '400px', height: '400px', background: 'radial-gradient(circle, var(--accent-color) 0%, transparent 70%)', opacity: 0.15, filter: 'blur(80px)', zIndex: -1 }}></div>
 
       {/* Top Controls */}
       <div style={{ position: 'absolute', top: '2rem', right: '2rem', display: 'flex', gap: '1rem' }}>
@@ -60,6 +69,8 @@ export default function SignupPage() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Create your account</p>
         </div>
 
+        {error && <div style={{ color: 'var(--danger)', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem' }}>{error}</div>}
+
         <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           
            {/* Name */}
@@ -69,6 +80,8 @@ export default function SignupPage() {
                 type="text" 
                 className="glass-input" 
                 placeholder="Full Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 style={{ paddingLeft: language === 'ar' ? '0.75rem' : '2.4rem', paddingRight: language === 'ar' ? '2.4rem' : '0.75rem' }}
                 required
               />
@@ -81,6 +94,8 @@ export default function SignupPage() {
                 type="email" 
                 className="glass-input" 
                 placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 style={{ paddingLeft: language === 'ar' ? '0.75rem' : '2.4rem', paddingRight: language === 'ar' ? '2.4rem' : '0.75rem' }}
                 required
               />
@@ -93,6 +108,8 @@ export default function SignupPage() {
                 type="password" 
                 className="glass-input" 
                 placeholder={t('password')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 style={{ paddingLeft: language === 'ar' ? '0.75rem' : '2.4rem', paddingRight: language === 'ar' ? '2.4rem' : '0.75rem' }}
                 required
               />
@@ -105,6 +122,8 @@ export default function SignupPage() {
                 type="password" 
                 className="glass-input" 
                 placeholder={t('confirm_password')}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 style={{ paddingLeft: language === 'ar' ? '0.75rem' : '2.4rem', paddingRight: language === 'ar' ? '2.4rem' : '0.75rem' }}
                 required
               />
