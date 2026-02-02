@@ -63,8 +63,9 @@ export default function LoginPage() {
         <button onClick={toggleTheme} className="icon-btn">
           {theme === 'dark' ? <Sun /> : <Moon />}
         </button>
-        <button onClick={toggleLanguage} className="icon-btn">
-          {language === 'en' ? 'AR' : 'EN'} <Globe size={20} style={{ marginLeft: '5px' }} />
+        <button onClick={toggleLanguage} className="icon-btn" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: '800' }}>{language === 'en' ? 'AR' : 'EN'}</span> 
+          <Globe size={20} />
         </button>
       </div>
 
@@ -114,7 +115,7 @@ export default function LoginPage() {
 
           <button type="submit" className="btn btn-primary w-full" disabled={loading} style={{ padding: '0.6rem' }}>
             {loading ? <Loader2 className="animate-spin" size={18} /> : t('login')}
-            {!loading && <ArrowRight size={18} />}
+            {!loading && <ArrowRight size={18} style={{ transform: language === 'ar' ? 'rotate(180deg)' : 'none' }} />}
           </button>
         </form>
 
