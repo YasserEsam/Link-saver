@@ -7,8 +7,9 @@ import { useAuth } from '../context/AuthContext';
 import { Sun, Moon, Globe, LogOut, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import SearchBar from './SearchBar';
 
-export default function Navbar() {
+export default function Navbar({ links = [], onSearchSelect }) {
   const { theme, toggleTheme } = useTheme();
   const { language, toggleLanguage, t } = useLanguage();
   const { user, logout } = useAuth();
@@ -23,38 +24,37 @@ export default function Navbar() {
     }
   };
 
+  const showSearch = links.length > 0 && onSearchSelect;
+
   return (
-    <nav style={{ 
-      padding: '0.75rem 2rem', 
-      position: 'sticky', 
-      top: '0', 
-      zIndex: 50,
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      background: 'var(--bg-secondary)',
-      borderBottom: '1px solid var(--glass-border)',
-      width: '100%',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-    }}>
-      <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-        <div className="logo" style={{ fontWeight: '900', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem', letterSpacing: '-0.5px' }}>
+    <nav className="navbar">
+      {/* Logo */}
+      <Link href="/" style={{ textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
+        <div style={{ fontWeight: '900', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem', letterSpacing: '-0.5px' }}>
           <span style={{ color: 'var(--text-primary)' }}>Saver</span>
           <span style={{ color: 'var(--accent-color)' }}>Link</span>
         </div>
       </Link>
 
-      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+      {/* Search — desktop only, takes center space */}
+      {showSearch && (
+        <div className="navbar-search">
+          <SearchBar links={links} onSelect={onSearchSelect} compact />
+        </div>
+      )}
+
+      {/* Right actions */}
+      <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexShrink: 0 }}>
         <button onClick={toggleTheme} className="icon-btn" title={theme === 'dark' ? t('theme_light') : t('theme_dark')}>
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
         </button>
 
         <button onClick={toggleLanguage} className="icon-btn" title={t('language')} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.85rem', fontWeight: '800' }}>
           <Globe size={20} />
-          <span className="hide-mobile">{language === 'en' ? 'AR' : 'EN'}</span>
+          <span className="hide-sm">{language === 'en' ? 'AR' : 'EN'}</span>
         </button>
 
-        <div style={{ width: '1px', height: '20px', background: 'var(--glass-border)', margin: '0 0.5rem' }}></div>
+        <div className="nav-divider"></div>
 
         <Link href="/profile" className="icon-btn" title={t('profile')} style={{ overflow: 'hidden', padding: user?.photoURL ? '0' : '0.4rem' }}>
           {user?.photoURL ? (
@@ -67,12 +67,6 @@ export default function Navbar() {
           <LogOut size={20} />
         </button>
       </div>
-
-      <style jsx>{`
-        @media (max-width: 480px) {
-          .hide-mobile { display: none; }
-        }
-      `}</style>
     </nav>
   );
 }

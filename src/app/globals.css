@@ -38,6 +38,11 @@
   padding: 0;
 }
 
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 body {
   font-family: 'Cairo', 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg-primary);
@@ -83,6 +88,7 @@ body {
   width: 100%;
   margin: 0;
   padding: 0 1.5rem;
+  overflow: hidden;
 }
 
 h1 { font-size: 1.5rem; font-weight: 700; }
@@ -208,4 +214,81 @@ h3 { font-size: 1rem; font-weight: 600; }
   width: 40px;
   height: 40px;
   animation: spin 1s linear infinite;
+}
+
+/* ── Navbar ── */
+.navbar {
+  padding: 0.6rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--glass-border);
+  width: 100%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  gap: 1rem;
+}
+
+.navbar-search {
+  flex: 1 1 0;
+  max-width: 420px;
+  min-width: 0;
+}
+
+.nav-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--glass-border);
+  margin: 0 0.4rem;
+}
+
+/* ── Responsive show/hide ── */
+.show-mobile-only { display: none; }
+
+@media (max-width: 700px) {
+  .navbar-search { display: none; }
+  .show-mobile-only { display: block; }
+}
+
+@media (max-width: 480px) {
+  .hide-sm { display: none; }
+  .navbar { padding: 0.6rem 1rem; }
+}
+
+/* ── Card Grid ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1.1rem;
+}
+.card-grid > * {
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .card-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1024px) {
+  .card-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 1280px) {
+  .card-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* ── Card ── */
+.link-card {
+  overflow: hidden;
+  min-width: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+.link-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+}
+
+@media (max-width: 480px) {
+  .container { padding: 0 0.75rem; }
+  .card-grid { gap: 0.75rem; }
 }

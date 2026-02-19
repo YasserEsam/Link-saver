@@ -1,86 +1,157 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Navbar from "../components/Navbar";
 import LinkCard from "../components/LinkCard";
 import AddEditModal from "../components/AddEditModal";
 import ConfirmationModal from "../components/ConfirmationModal";
+import LinkDetailModal from "../components/LinkDetailModal";
+import EmptyState from "../components/EmptyState";
+import SearchBar from "../components/SearchBar";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
-import { Plus, Search, Loader2 } from "lucide-react";
+import { Plus, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { db } from "../lib/firebase";
-import { 
-  collection, 
-  onSnapshot, 
-  addDoc, 
-  deleteDoc, 
-  doc, 
+import {
+  collection,
+  onSnapshot,
+  addDoc,
+  deleteDoc,
+  doc,
   updateDoc,
   query,
   orderBy
 } from "firebase/firestore";
 
+const PER_PAGE = 12;
+
+function Pagination({ current, total, onPage, t, isRTL }) {
+  const PrevIcon = isRTL ? ChevronRight : ChevronLeft;
+  const NextIcon = isRTL ? ChevronLeft : ChevronRight;
+  if (total <= 1) return null;
+
+  const pages = [];
+  const show = (n) => { if (!pages.includes(n)) pages.push(n); };
+
+  show(1);
+  if (current > 2) show(current - 1);
+  show(current);
+  if (current < total - 1) show(current + 1);
+  show(total);
+
+  const items = [];
+  for (let i = 0; i < pages.length; i++) {
+    if (i > 0 && pages[i] - pages[i - 1] > 1) {
+      items.push(<span key={`dots-${i}`} style={{ padding: '0 0.2rem', color: 'var(--text-secondary)', fontSize: '0.85rem', userSelect: 'none' }}>…</span>);
+    }
+    const p = pages[i];
+    items.push(
+      <button
+        key={p}
+        onClick={() => onPage(p)}
+        style={{
+          width: '36px', height: '36px', borderRadius: '10px',
+          border: p === current ? '1.5px solid var(--accent-color)' : '1px solid var(--glass-border)',
+          background: p === current ? 'var(--accent-color)' : 'var(--bg-secondary)',
+          color: p === current ? '#fff' : 'var(--text-primary)',
+          fontWeight: '700', fontSize: '0.85rem',
+          cursor: 'pointer', transition: 'all 0.15s',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        {p}
+      </button>
+    );
+  }
+
+  const btnStyle = (disabled) => ({
+    display: 'flex', alignItems: 'center', gap: '0.3rem',
+    padding: '0.45rem 0.85rem', borderRadius: '10px',
+    border: '1px solid var(--glass-border)',
+    background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+    fontWeight: '600', fontSize: '0.8rem',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.4 : 1,
+    transition: 'all 0.15s',
+  });
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      gap: '0.5rem', flexWrap: 'wrap', marginTop: '2rem', padding: '0 0.5rem',
+    }}>
+      <button onClick={() => onPage(current - 1)} disabled={current === 1} style={btnStyle(current === 1)}>
+        <PrevIcon size={16} /> <span className="hide-sm">{t('prev')}</span>
+      </button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+        {items}
+      </div>
+
+      <button onClick={() => onPage(current + 1)} disabled={current === total} style={btnStyle(current === total)}>
+        <span className="hide-sm">{t('next')}</span> <NextIcon size={16} />
+      </button>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { t, language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  
+  const topRef = useRef(null);
+
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [isAddEditOpen, setIsAddEditOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
-  // Protected Route & Data Fetching
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
     }
-
     if (user) {
       const q = query(
         collection(db, `users/${user.uid}/links`),
         orderBy("createdAt", "desc")
       );
-
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const linksData = snapshot.docs.map(doc => ({
-          ...doc.data(),
-          id: doc.id
-        }));
-        setLinks(linksData);
+        setLinks(snapshot.docs.map(d => ({ ...d.data(), id: d.id })));
         setLoading(false);
       });
-
       return () => unsubscribe();
     }
   }, [user, authLoading, router]);
 
-  const filteredLinks = links.filter(link => 
-    link.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    link.accounts.some(acc => acc.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const totalPages = Math.max(1, Math.ceil(links.length / PER_PAGE));
+  const safePage = Math.min(page, totalPages);
+  const pagedLinks = links.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
 
-  const handleSaveLink = async (formData) => {
+  const goToPage = (p) => {
+    const next = Math.max(1, Math.min(p, totalPages));
+    setPage(next);
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleSave = async (formData) => {
     if (!user) return;
-
     try {
       if (currentItem) {
-        // Edit
-        const docRef = doc(db, `users/${user.uid}/links`, currentItem.id);
-        await updateDoc(docRef, {
+        await updateDoc(doc(db, `users/${user.uid}/links`, currentItem.id), {
           ...formData,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         });
       } else {
-        // Add
         await addDoc(collection(db, `users/${user.uid}/links`), {
           ...formData,
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         });
       }
     } catch (error) {
@@ -108,6 +179,16 @@ export default function Dashboard() {
     }
   };
 
+  const openDetail = (link) => {
+    setDetailItem(link);
+    setIsDetailOpen(true);
+  };
+
+  const openAdd = () => {
+    setCurrentItem(null);
+    setIsAddEditOpen(true);
+  };
+
   if (authLoading || (user && loading)) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
@@ -120,130 +201,74 @@ export default function Dashboard() {
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <Navbar />
+      <Navbar links={links} onSearchSelect={openDetail} />
 
       <main className="container" style={{ flex: 1, padding: '1.5rem', width: '100%' }}>
-        
-        {/* Header Actions */}
-        <div style={{ 
-          display: "flex", 
-          flexWrap: "wrap", 
-          gap: "1rem", 
-          justifyContent: "space-between", 
-          alignItems: "center",
-          marginBottom: "2rem" 
-        }}>
+        {/* Scroll anchor */}
+        <div ref={topRef} />
+
+        {/* Header row */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
           <div>
             <h1 style={{ fontSize: "1.75rem", fontWeight: "800", letterSpacing: "-0.5px" }}>{t('dashboard')}</h1>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>{language === 'ar' ? 'قم بإدارة روابطك وحساباتك بأمان' : 'Safe & simple link management'}</p>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>{t('bottom_text')}</p>
           </div>
-          
-          <button 
-            onClick={() => { setCurrentItem(null); setIsAddEditOpen(true); }} 
-            className="btn btn-primary"
-            style={{ padding: "0.75rem 1.5rem", borderRadius: "10px", boxShadow: "0 4px 6px -1px rgba(59, 130, 246, 0.3)" }}
-          >
+          <button onClick={openAdd} className="btn btn-primary" style={{ padding: "0.75rem 1.5rem", borderRadius: "10px", boxShadow: "0 4px 6px -1px rgba(59,130,246,0.3)" }}>
             <Plus size={20} /> {t('add_new')}
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="glass-panel" style={{ padding: "0.75rem", marginBottom: "2rem" }}>
-          <div style={{ position: "relative", width: "100%" }}>
-            <Search size={18} style={{ 
-              position: "absolute", 
-              [language === 'ar' ? 'right' : 'left']: "1.25rem", 
-              top: "50%", 
-              transform: "translateY(-50%)", 
-              color: "var(--text-secondary)" 
-            }} />
-            <input 
-              type="text" 
-              className="glass-input" 
-              placeholder={t('search')} 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ 
-                paddingLeft: language === 'ar' ? '1rem' : '3.25rem', 
-                paddingRight: language === 'ar' ? '3.25rem' : '1rem' 
-              }}
-            />
+        {/* Mobile-only search */}
+        {links.length > 0 && (
+          <div className="show-mobile-only" style={{ marginBottom: '1.25rem' }}>
+            <SearchBar links={links} onSelect={openDetail} />
           </div>
-        </div>
+        )}
 
-        {/* Links Grid */}
-        {filteredLinks.length > 0 ? (
-          <div className="grid grid-cols-1 grid-cols-sm-2 grid-cols-lg-3 grid-cols-xl-4" style={{ gap: "1.25rem" }}>
-            {filteredLinks.map(link => (
-              <LinkCard 
-                key={link.id} 
-                item={link} 
-                onEdit={handleEdit} 
-                onDelete={handleDeleteClick} 
-              />
-            ))}
-          </div>
+        {/* Content */}
+        {links.length > 0 ? (
+          <>
+            <div className="card-grid">
+              {pagedLinks.map(link => (
+                <LinkCard
+                  key={link.id}
+                  item={link}
+                  onEdit={handleEdit}
+                  onDelete={handleDeleteClick}
+                  onClick={openDetail}
+                />
+              ))}
+            </div>
+
+            <Pagination current={safePage} total={totalPages} onPage={goToPage} t={t} isRTL={language === 'ar'} />
+          </>
         ) : (
-          <div className="glass-panel text-center" style={{ 
-            padding: "6rem 2rem", 
-            display: "flex", 
-            flexDirection: "column", 
-            alignItems: "center", 
-            gap: "1.5rem",
-            background: "linear-gradient(135deg, var(--bg-secondary), var(--bg-primary))"
-          }}>
-             <div style={{ 
-                width: "80px", 
-                height: "80px", 
-                borderRadius: "24px", 
-                background: "rgba(59, 130, 246, 0.05)", 
-                display: "flex", 
-                alignItems: "center", 
-                justifyContent: "center",
-                color: "var(--accent-color)",
-                marginBottom: "0.5rem"
-             }}>
-                <Plus size={40} strokeWidth={1.5} />
-             </div>
-             
-             <div>
-                <h2 style={{ fontSize: "1.5rem", fontWeight: "800", marginBottom: "0.5rem" }}>{t('no_accounts')}</h2>
-                <p style={{ color: "var(--text-secondary)", maxWidth: "300px", margin: "0 auto", fontSize: "0.95rem" }}>
-                  {language === 'ar' 
-                    ? 'ابدأ بإضافة أول رابط وحساباتك لتنظيمها بشكل آمن' 
-                    : 'Start by adding your first link and accounts to organize them securely'}
-                </p>
-             </div>
-
-             <button 
-                onClick={() => { setCurrentItem(null); setIsAddEditOpen(true); }}
-                className="btn btn-primary"
-                style={{ padding: "0.8rem 2.5rem", borderRadius: "12px", fontSize: "1rem", fontWeight: "700" }}
-             >
-                {t('add_account')}
-             </button>
-          </div>
+          <EmptyState onAdd={openAdd} />
         )}
       </main>
 
-      {/* Modals */}
-      <AddEditModal 
-        isOpen={isAddEditOpen} 
-        onClose={() => setIsAddEditOpen(false)} 
+      <AddEditModal
+        isOpen={isAddEditOpen}
+        onClose={() => setIsAddEditOpen(false)}
         initialData={currentItem}
-        onSave={handleSaveLink}
+        onSave={handleSave}
       />
-
-      <ConfirmationModal 
-        isOpen={isConfirmOpen} 
-        onClose={() => setIsConfirmOpen(false)} 
+      <ConfirmationModal
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
         onConfirm={confirmDelete}
         message={t('delete_confirm')}
       />
+      <LinkDetailModal
+        isOpen={isDetailOpen}
+        item={detailItem}
+        onClose={() => setIsDetailOpen(false)}
+        onEdit={handleEdit}
+        onDelete={handleDeleteClick}
+      />
 
-      {/* Footer Branding */}
       <footer style={{ padding: "2rem", textAlign: "center", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-        LinkSaver - Build By Yasser WIth Love {new Date().getFullYear()} ©
+        LinkSaver - Build By Yasser With Love {new Date().getFullYear()} ©
       </footer>
     </div>
   );
